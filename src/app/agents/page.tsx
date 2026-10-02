@@ -21,7 +21,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <div>
           <h1 className="text-2xl font-semibold">Agents</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Free markets used: {user.free_markets_used} of {limit}. Paper runs on your Kalshi demo key.
+            Free markets used: {user.free_markets_used} of {limit}. Paper reads the live tape and simulates the order calls.
           </p>
         </div>
         <Link className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-zinc-950" href="/agents/new">

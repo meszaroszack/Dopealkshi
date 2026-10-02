@@ -54,7 +54,7 @@ export default async function AgentPage({
       </dl>
       <h2 className="mt-8 text-sm font-medium text-zinc-400">What it did</h2>
       {decisions.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">Nothing yet. Run it after the Kalshi demo card is green.</p>
+        <p className="mt-3 text-sm text-zinc-500">Nothing yet. Run it after the Kalshi card is green.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {decisions.map((decision, index) => (

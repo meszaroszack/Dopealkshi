@@ -13,7 +13,7 @@ export default async function NewAgentPage({ searchParams }: { searchParams: Pro
     <Shell email={user.email} admin={user.role === "admin"}>
       <h1 className="text-2xl font-semibold">New Window agent</h1>
       <p className="mt-2 max-w-xl text-sm text-zinc-400">
-        It watches the first three minutes, buys YES only between 28¢ and 72¢ after BTC has moved enough, and does not open a trade in the last 90 seconds. It starts paused, on your demo key.
+        It watches the first three minutes, buys YES only between 28¢ and 72¢ after BTC has moved enough, and does not open a trade in the last 90 seconds. It starts paused. Paper does not send the order to Kalshi.
       </p>
       <Notice text={params.error} />
       <form action={createAgent} className="mt-6 space-y-4">

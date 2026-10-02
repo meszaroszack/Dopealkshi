@@ -41,7 +41,17 @@ A `201` body includes `order_id`, `fill_count`, and `remaining_count`. `fill_cou
 | `429` | stays `pending_submit` | Back off. Resubmit the same `client_order_id`. |
 | Timeout, `500`, `503`, empty body, HTML, bad JSON | `unknown` | Resubmit the same id once, then reconcile. No second order. |
 
-The sentence on the agent page while status is `unknown`: "Kalshi timed out. Checking whether the bid landed. Not sending another."
+The sentence on the agent page while status is `unknown`: "The order call dropped. Checking whether the bid landed. Not sending another." A `500` uses "Kalshi returned a bad response. Checking whether the bid landed. Not sending another."
+
+## Paper simulator
+
+Paper uses the same intent row and the same states. The HTTP call is `paperRequest` in `src/lib/paper.ts`, not Kalshi. Fate is `sha256(client_order_id)[0] % 10`:
+
+- `0–1` drop. The order is inserted with `visible_at` eight seconds ahead, then the call throws. A retry of that id is `409`. A list or get before `visible_at` misses it. `as_of_time` is thirty seconds behind while any order is still hidden. Cancel of a hidden order is `503`.
+- `2` server error. `500`, no row. After `as_of_time` passes the submit time, the intent becomes `absent`.
+- otherwise `201` resting, fill `0`. Fifteen seconds after it is visible, a read reports it executed.
+
+Probe rows created while saving a key are deleted before the checklist returns. They are not strategy intents.
 
 ## Read lag
 

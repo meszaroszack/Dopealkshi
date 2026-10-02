@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { saveDemoKey } from "@/app/actions/app";
+import { saveLiveKey } from "@/app/actions/app";
 import { Notice, Shell } from "@/components/Shell";
 import { currentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
@@ -20,25 +20,25 @@ export default async function KalshiPage({ searchParams }: { searchParams: Promi
   if (!user) redirect("/login");
   const params = await searchParams;
   const rows = await query<{ api_key_id: string; checklist: Checklist; last_balance: string | null }>(
-    "select api_key_id, checklist, last_balance from kalshi_credentials where user_id = $1 and environment = 'demo'",
+    "select api_key_id, checklist, last_balance from kalshi_credentials where user_id = $1 and environment = 'live'",
     [user.id],
   );
   const cred = rows[0];
   const checklist = cred?.checklist ?? {};
   return (
     <Shell email={user.email} admin={user.role === "admin"}>
-      <h1 className="text-2xl font-semibold">Kalshi demo</h1>
+      <h1 className="text-2xl font-semibold">Kalshi</h1>
       <p className="mt-2 max-w-xl text-sm text-zinc-400">
-        Paste the key id and the private key from demo.kalshi.co. Dopealkshi places a 1¢ order and cancels it to prove the key can trade. The private key is encrypted and is not shown again.
+        Paste a production key from kalshi.com. Dopealkshi reads your balance and positions on the live API. Paper orders stay on this server: dropped calls, 500s, and lagged reads. Run does not send a bet. The private key is encrypted and is not shown again.
       </p>
       <Notice text={params.error || params.message} />
       <ul className="mt-4 space-y-1 text-sm">
         <Check ok={checklist.pem} label="Private key parses" />
         <Check ok={checklist.balanceOk} label={cred?.last_balance ? `Balance $${Number(cred.last_balance).toFixed(2)}` : "Balance call"} />
         <Check ok={checklist.positionsOk} label="Positions call" />
-        <Check ok={checklist.probeOk} label="1¢ order placed and canceled" />
+        <Check ok={checklist.probeOk} label="Paper can drop a call, return 500, and lag a read" />
       </ul>
-      <form action={saveDemoKey} className="mt-6 space-y-4">
+      <form action={saveLiveKey} className="mt-6 space-y-4">
         <label className="block text-sm">
           API key id
           <input className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" name="keyId" defaultValue={cred?.api_key_id ?? ""} required />

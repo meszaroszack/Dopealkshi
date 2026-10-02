@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { testDemoKey } from "@/lib/settings-check";
+import { testLiveKey } from "@/lib/settings-check";
 import { defaultWindowParams } from "@/lib/window";
 
 async function requireUser() {
@@ -13,12 +13,12 @@ async function requireUser() {
   return user;
 }
 
-export async function saveDemoKey(formData: FormData) {
+export async function saveLiveKey(formData: FormData) {
   const user = await requireUser();
   const keyId = String(formData.get("keyId") || "").trim();
   const pem = String(formData.get("pem") || "");
   if (!keyId || !pem.trim()) redirect("/kalshi?error=Key id and PEM are both required.");
-  const checklist = await testDemoKey(user.id, keyId, pem);
+  const checklist = await testLiveKey(user.id, keyId, pem);
   redirect(`/kalshi?message=${encodeURIComponent(checklist.message || "Saved.")}`);
 }
 
@@ -58,11 +58,11 @@ export async function setRunning(formData: FormData) {
   if (!agent) redirect("/agents");
   if (running) {
     const cred = await query<{ checklist: { probeOk?: boolean } }>(
-      "select checklist from kalshi_credentials where user_id = $1 and environment = 'demo'",
+      "select checklist from kalshi_credentials where user_id = $1 and environment = 'live'",
       [user.id],
     );
     if (!cred[0]?.checklist?.probeOk) {
-      redirect(`/agents/${id}?error=${encodeURIComponent("Demo key is not green yet. Finish the Kalshi checklist.")}`);
+      redirect(`/agents/${id}?error=${encodeURIComponent("Production key is not green yet. Finish the Kalshi checklist.")}`);
     }
     await query("update agents set status = 'paused' where user_id = $1 and strategy = 'btc_15m' and id <> $2", [user.id, id]);
   }

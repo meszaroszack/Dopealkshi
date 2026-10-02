@@ -18,7 +18,7 @@ Shared, always visible, not hidden inside a style:
 
 - Daily loss cap, then the agent stops opening new orders
 - Cooldown after a loss
-- Paper (demo key) or live (production key)
+- Paper (simulated orders on a production key) or live (production orders, not armed in this deploy)
 - Armed, default off. Live orders require armed, Pro, a green Live card, and the global halt off
 
 ## Window
@@ -45,7 +45,7 @@ Picky tightens the contract band and raises the minimum BTC move. Get out change
 - Swing threshold 0.05
 - Lookback 3
 
-These numbers disagree with Window on purpose. They are two presets, not one merged bot. Picky moves the confidence floor and the swing threshold. Get out moves the take profit, the stop, and the daily loss cap. Size applies the risk percent to the demo or live balance, capped by max open positions.
+These numbers disagree with Window on purpose. They are two presets, not one merged bot. Picky moves the confidence floor and the swing threshold. Get out moves the take profit, the stop, and the daily loss cap. Size applies the risk percent to the production balance, capped by max open positions.
 
 ## Decay
 

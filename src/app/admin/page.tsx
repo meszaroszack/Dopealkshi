@@ -21,7 +21,7 @@ export default async function AdminPage() {
     has_key: boolean;
   }>(
     `select u.id, u.email, p.role, p.tier, p.disabled, p.free_markets_used,
-            exists(select 1 from kalshi_credentials c where c.user_id = u.id and c.environment = 'demo') as has_key
+            exists(select 1 from kalshi_credentials c where c.user_id = u.id and c.environment = 'live') as has_key
      from users u join profiles p on p.id = u.id
      order by u.created_at`,
   );
@@ -35,7 +35,7 @@ export default async function AdminPage() {
           {halt ? "Live halt is on. Resume live orders." : "Halt live orders"}
         </button>
       </form>
-      <p className="mt-2 text-xs text-zinc-500">This deploy only sends demo orders. The halt is stored for the live path.</p>
+      <p className="mt-2 text-xs text-zinc-500">Run simulates orders. The halt is stored for when live betting is armed.</p>
       <ul className="mt-6 space-y-3">
         {users.map((row) => (
           <li key={row.id} className="rounded-xl border border-zinc-800 px-4 py-3 text-sm">
@@ -43,7 +43,7 @@ export default async function AdminPage() {
               <div>
                 <div className="font-medium">{row.email}</div>
                 <div className="text-xs text-zinc-500">
-                  {row.role} · {row.tier} · {row.disabled ? "disabled" : "active"} · demo key {row.has_key ? "yes" : "no"} · markets {row.free_markets_used}
+                  {row.role} · {row.tier} · {row.disabled ? "disabled" : "active"} · production key {row.has_key ? "yes" : "no"} · markets {row.free_markets_used}
                 </div>
               </div>
               <div className="flex gap-2">

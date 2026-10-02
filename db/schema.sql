@@ -89,6 +89,21 @@ create table if not exists app_settings (
 insert into app_settings (id, halt_live) values (1, false)
 on conflict (id) do nothing;
 
+create table if not exists paper_orders (
+  client_order_id text primary key,
+  order_id text not null,
+  user_id uuid not null,
+  ticker text not null,
+  side text not null,
+  price text not null,
+  count text not null,
+  fill_count text not null,
+  remaining_count text not null,
+  status text not null,
+  visible_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists admin_audit (
   id uuid primary key default gen_random_uuid(),
   actor_id uuid,

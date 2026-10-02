@@ -1,6 +1,6 @@
 # Admin
 
-Admin is an extra nav on the same app. The admin account is also a normal user: it connects its own demo key and live key and runs its own agents. Admin actions do not decrypt another customer's PEM, and there is no "log in as user".
+Admin is an extra nav on the same app. The admin account is also a normal user: it connects its own production key and runs its own agents. Admin actions do not decrypt another customer's PEM, and there is no "log in as user".
 
 Seed the admin role from `ADMIN_EMAILS` on first login. Everyone else is `user`.
 
@@ -16,7 +16,7 @@ Overview:
 
 Users:
 
-- Email, tier, key connected (yes or no, demo or live), agents running
+- Email, tier, production key connected (yes or no), agents running
 - Set tier, including comp to Pro without Stripe
 - Disable the account, which pauses their agents and blocks arming
 - Pause one of their agents
@@ -57,7 +57,7 @@ Each row shows:
 
 Demo never moves a row between Working and Not working. Demo books are not the production 15-minute market.
 
-An agent is not ranked until it has at least 20 reconciled live settlements. Three free demo markets are a setup test, not a result.
+An agent is not ranked until it has at least 20 reconciled live settlements. Paper fills are a setup test, not a result.
 
 Not working has two reasons:
 
@@ -74,7 +74,7 @@ A private note on a cluster, plus three actions.
 - **Promote** copies that cluster's dials into a new official style card on the create screen. Window, Swing, and Decay stay. The new card is named by the admin.
 - **Hide** pulls a published agent off the gallery.
 
-**Clone** is one click on either list. It copies that published agent's name, style, and dials onto a new agent on the admin account. The clone is paused and bound to the admin's demo key. The source customer's key, fills, and later dial changes stay theirs.
+**Clone** is one click on either list. It copies that published agent's name, style, and dials onto a new agent on the admin account. The clone is paused and bound to the admin's production key. The source customer's key, fills, and later dial changes stay theirs.
 
 Run on the clone still waits until the admin's Demo card is green. If the admin already has a running agent on that series, the clone stays paused beside it. Arming the clone live is a separate action, the same as any other agent.
 

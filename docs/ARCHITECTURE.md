@@ -1,8 +1,6 @@
 # Architecture
 
-The app is one Next.js service. The worker starts inside that process. This deploy uses Railway Postgres and email/password sessions. `ADMIN_EMAILS` sets admins; if it is empty, the first account is admin. Stripe is one plan and is not wired yet. Kalshi demo and Kalshi production are separate hosts and separate keys.
-
-The app is not built yet. This document is what the first build has to match.
+The app is one Next.js service. The worker starts inside that process. This deploy uses Railway Postgres and email/password sessions. `ADMIN_EMAILS` sets admins; if it is empty, the first account is admin. Stripe is one plan and is not wired yet. Reads use Kalshi production. Paper orders stay in Postgres.
 
 ## System
 
@@ -12,8 +10,8 @@ flowchart LR
   admin[Admin]
   web[NextApp]
   worker[Worker]
-  db[Supabase]
-  demo[KalshiDemo]
+  db[RailwayPostgres]
+  paper[PaperSimulator]
   prod[KalshiLive]
   stripe[Stripe]
   customer --> web
@@ -21,7 +19,7 @@ flowchart LR
   web --> db
   web --> stripe
   worker --> db
-  worker --> demo
+  worker --> paper
   worker --> prod
 ```
 
@@ -33,7 +31,7 @@ The web app never holds a raw PEM in the browser after save. Encryption is AES-2
 
 ## Processes
 
-**Web.** Login, the Kalshi cards, agent create and edit, the decision log, Stripe checkout, and the admin pages. Auth is Supabase magic link. The browser uses the anon key for login. Agent rows, credentials, and orders are read and written by the server.
+**Web.** Login, the Kalshi card, agent create and edit, the decision log, and the admin pages. Auth is an email and password session cookie. Agent rows, credentials, and orders are read and written by the server.
 
 **Worker.** One Railway process.
 
@@ -41,7 +39,7 @@ The web app never holds a raw PEM in the browser after save. Encryption is AES-2
 - For each running agent, call `decide(snapshot, params)`. That function does not touch the network. It returns skip, enter, or exit, plus one sentence.
 - Write the decision.
 - If the action is enter or exit, and the gates in [SETTINGS.md](SETTINGS.md) pass, hand the order to the lifecycle in [ORDER-LIFECYCLE.md](ORDER-LIFECYCLE.md).
-- Private Kalshi calls (balance, positions, orders, fills) happen only for users with a running agent, staggered, against that agent's bound host.
+- Private Kalshi reads (balance, positions) happen on the production host for users with a saved key. Paper order calls stay in the simulator.
 
 Two workers must not double-send. An agent row carries a lease timestamp. A cycle that cannot take the lease does not submit.
 
@@ -49,12 +47,13 @@ Two workers must not double-send. An agent row carries a lease timestamp. A cycl
 
 Public market data is fetched once and shared. A 1.5 second order-book poll per customer dies at a few dozen users. Kalshi's public read budget is shared.
 
-Demo agents talk only to `https://external-api.demo.kalshi.co/trade-api/v2`. Live agents talk only to `https://external-api.kalshi.com/trade-api/v2`. The worker selects the host from the credential row, not from a global flag.
+Public markets and account reads use `https://external-api.kalshi.com/trade-api/v2`. Paper order create, cancel, list, and the user-data timestamp are served by `paper_orders` in Postgres. The Run path does not post to Kalshi.
 
 ## Data model
 
 - `profiles` — id matches the auth user, role (`user` or `admin`), tier (`free` or `pro`), disabled flag
-- `kalshi_credentials` — one demo row and one live row per user, key id, encrypted PEM, last balance, last error, checklist timestamps
+- `kalshi_credentials` — production key id, encrypted PEM, last balance, last error, checklist. The row's environment is `live`.
+- `paper_orders` — simulated orders keyed by `client_order_id`, hidden until `visible_at`
 - `agents` — user, name, strategy (`btc_15m` or `btc_hourly`), style, `params` jsonb, mode (`paper` or `live`), status (`paused` or `running`), armed, published flag
 - `order_intents` — agent, `client_order_id` unique, ticker, side, price, count, status, Kalshi `order_id`, submit time
 - `decisions` — agent, time, action (`skip`, `enter`, `exit`, or `shadow`), one sentence
@@ -68,7 +67,7 @@ Row-level security locks each user to their own rows so a leaked anon key cannot
 
 ## Quotas
 
-The worker counts a free-tier market when that demo window settles, not when the customer clicks Arm. Shadow decisions still run after the third settlement. They do not create intents. An open position keeps its get-out intents until it settles. The bonus market for an all-skip account is a counter on `profiles`, granted once automatically, and grantable again by an admin.
+The worker counts a free-tier market when the 15-minute ticker rolls, not when the customer clicks Run. Shadow decisions still run after the third settlement. They do not create intents. An open position keeps its get-out intents until it settles. The bonus market for an all-skip account is a counter on `profiles`, granted once automatically, and grantable again by an admin.
 
 ## Out of v1
 

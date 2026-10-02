@@ -28,7 +28,7 @@ The log is the product. It does not say the agent learned, trained, or decided o
 
 ## Paper
 
-Paper uses the customer's demo Kalshi key and places real orders on the demo exchange. A demo settlement counts toward the free quota. Practice that never hits Kalshi does not exist in this app.
+Paper reads the live 15-minute market and the customer's production balance. Order calls are simulated in Postgres, including dropped responses, 500s, and reads that lag the write. A simulated window still counts toward the free quota. Run does not place a Kalshi bet.
 
 ## Free and Pro
 
@@ -36,7 +36,7 @@ Free:
 
 - One agent
 - 15-minute market only
-- Three settled demo markets, then the agent stops opening new orders
+- Three settled paper markets, then the agent stops opening new orders
 - If a position is still open when the third market ends, get-out rules keep running until that position settles
 - If all three markets were skips, the account gets one extra market, once
 
@@ -59,7 +59,7 @@ Admin can grant one extra market without comping the month. That is for someone 
 
 ## Publish
 
-Publish copies the agent's name, style, and dials onto a public card. It does not copy the key, the order history, or the balance. Another customer can clone the card. The clone is a new paused agent on their own demo key.
+Publish copies the agent's name, style, and dials onto a public card. It does not copy the key, the order history, or the balance. Another customer can clone the card. The clone is a new paused agent on their own production key.
 
 Unpublish removes the card. It does not delete the agent's own orders.
 
@@ -67,7 +67,7 @@ The public card shows the dials. It shows a performance sentence only after an a
 
 ## Clone
 
-A customer clone and an admin clone are the same copy operation. Dials only. Paused. Bound to the copier's own demo key. Later edits on the source agent do not change the copy.
+A customer clone and an admin clone are the same copy operation. Dials only. Paused. Bound to the copier's own production key. Later edits on the source agent do not change the copy.
 
 ## Words the UI does not use
 

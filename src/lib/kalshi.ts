@@ -1,11 +1,6 @@
 import crypto from "crypto";
 
-export const DEMO_BASE = "https://external-api.demo.kalshi.co";
 export const LIVE_BASE = "https://external-api.kalshi.com";
-
-export function baseFor(environment: "demo" | "live") {
-  return environment === "live" ? LIVE_BASE : DEMO_BASE;
-}
 
 export function signRequest(pem: string, timestamp: string, method: string, signPath: string) {
   const key = crypto.createPrivateKey(pem);
@@ -27,7 +22,6 @@ export type KalshiResult = {
 };
 
 export async function kalshiRequest(
-  environment: "demo" | "live",
   keyId: string,
   pem: string,
   method: string,
@@ -37,7 +31,7 @@ export async function kalshiRequest(
   const timestamp = Date.now().toString();
   const signPath = path.split("?")[0];
   const signature = signRequest(pem, timestamp, method, signPath);
-  const response = await fetch(`${baseFor(environment)}${path}`, {
+  const response = await fetch(`${LIVE_BASE}${path}`, {
     method,
     headers: {
       "KALSHI-ACCESS-KEY": keyId,
@@ -62,7 +56,7 @@ export async function kalshiRequest(
 }
 
 export async function publicGet(path: string) {
-  const response = await fetch(`${DEMO_BASE}${path}`, {
+  const response = await fetch(`${LIVE_BASE}${path}`, {
     signal: AbortSignal.timeout(12_000),
     cache: "no-store",
   });

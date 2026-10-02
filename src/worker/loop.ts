@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { query } from "../lib/db";
-import { formatCount, formatPrice, kalshiRequest, publicGet } from "../lib/kalshi";
+import { formatCount, formatPrice, publicGet } from "../lib/kalshi";
+import { paperRequest } from "../lib/paper";
 import { decideWindow, defaultWindowParams, type WindowParams } from "../lib/window";
 import { decryptPem } from "../lib/crypto";
 
@@ -45,7 +46,7 @@ async function runCycle() {
             a.open_entry_price, a.open_count, c.api_key_id, c.private_key_encrypted, c.checklist,
             p.free_markets_used, p.skip_windows, p.bonus_market_granted, p.disabled, p.tier
      from agents a
-     join kalshi_credentials c on c.user_id = a.user_id and c.environment = 'demo'
+     join kalshi_credentials c on c.user_id = a.user_id and c.environment = 'live'
      join profiles p on p.id = a.user_id
      where a.status = 'running' and a.mode = 'paper' and p.disabled = false`,
   );
@@ -110,24 +111,33 @@ async function leaseAndTrade(agent: AgentRow, market: Awaited<ReturnType<typeof 
             a.open_entry_price, a.open_count, c.api_key_id, c.private_key_encrypted, c.checklist,
             p.free_markets_used, p.skip_windows, p.bonus_market_granted, p.disabled, p.tier
      from agents a
-     join kalshi_credentials c on c.user_id = a.user_id and c.environment = 'demo'
+     join kalshi_credentials c on c.user_id = a.user_id and c.environment = 'live'
      join profiles p on p.id = a.user_id
      where a.id = $1`,
     [agent.id],
   ))[0];
   if (!refreshed) return;
 
-  const openIntent = (await query<{ status: string; client_order_id: string; kalshi_order_id: string | null; ticker: string; side: string; submit_time: string }>(
-    `select status, client_order_id, kalshi_order_id, ticker, side, submit_time
+  const openIntent = (await query<{ status: string; client_order_id: string; kalshi_order_id: string | null; ticker: string; side: string; submit_time: string; price: string; count: string }>(
+    `select status, client_order_id, kalshi_order_id, ticker, side, submit_time, price, count
      from order_intents
      where agent_id = $1 and purpose = 'strategy' and status in ('pending_submit', 'unknown', 'acked', 'resting')
      order by submit_time desc limit 1`,
     [refreshed.id],
   ))[0];
 
-  const pem = decryptPem(refreshed.private_key_encrypted);
+  try {
+    decryptPem(refreshed.private_key_encrypted);
+  } catch {
+    await query("update agents set status = 'paused' where id = $1", [refreshed.id]);
+    await query("insert into decisions (agent_id, action, sentence) values ($1, 'skip', $2)", [
+      refreshed.id,
+      "Paused. The saved production key could not be read.",
+    ]);
+    return;
+  }
   if (openIntent) {
-    await reconcile(refreshed, pem, openIntent);
+    await reconcile(refreshed, openIntent);
     return;
   }
 
@@ -164,10 +174,10 @@ async function leaseAndTrade(agent: AgentRow, market: Awaited<ReturnType<typeof 
 
   if (!market || !view) return;
   if (decision.action === "enter") {
-    await submit(refreshed, pem, market.ticker, "bid", view.yesAsk, params.sizeDollars);
+    await submit(refreshed, market.ticker, "bid", view.yesAsk, params.sizeDollars);
     await query("update agents set window_entries = window_entries + 1 where id = $1", [refreshed.id]);
   } else if (decision.action === "exit" && Number(refreshed.open_count ?? 0) > 0) {
-    await submit(refreshed, pem, market.ticker, "ask", view.yesAsk, Number(refreshed.open_count));
+    await submit(refreshed, market.ticker, "ask", view.yesAsk, Number(refreshed.open_count));
   }
 }
 
@@ -187,7 +197,7 @@ async function rollWindow(agent: AgentRow) {
   await query("update agents set window_entries = 0, open_entry_price = null, open_count = null where id = $1", [agent.id]);
 }
 
-async function submit(agent: AgentRow, pem: string, ticker: string, side: "bid" | "ask", price: number, size: number) {
+async function submit(agent: AgentRow, ticker: string, side: "bid" | "ask", price: number, size: number) {
   const contracts = side === "bid" ? Math.max(1, Math.floor(size / Math.max(price, 0.01))) : Math.max(1, Math.floor(size));
   const clientOrderId = randomUUID();
   await query(
@@ -196,7 +206,7 @@ async function submit(agent: AgentRow, pem: string, ticker: string, side: "bid" 
     [agent.id, agent.user_id, clientOrderId, ticker, side, formatPrice(price), formatCount(contracts)],
   );
   try {
-    const created = await kalshiRequest("demo", agent.api_key_id, pem, "POST", "/trade-api/v2/portfolio/events/orders", {
+    const created = await paperRequest(agent.user_id, "POST", "/trade-api/v2/portfolio/events/orders", {
       ticker,
       client_order_id: clientOrderId,
       side,
@@ -215,7 +225,7 @@ async function submit(agent: AgentRow, pem: string, ticker: string, side: "bid" 
     ]);
     await query("insert into decisions (agent_id, action, sentence) values ($1, 'skip', $2)", [
       agent.id,
-      "Kalshi timed out. Checking whether the bid landed. Not sending another.",
+      "The order call dropped. Checking whether the bid landed. Not sending another.",
     ]);
   }
 }
@@ -252,7 +262,18 @@ async function applyCreate(
     await query("update agents set status = 'paused' where id = $1", [agentId]);
     await query("insert into decisions (agent_id, action, sentence) values ($1, 'skip', $2)", [
       agentId,
-      status === 403 ? "This key can read the account and cannot place orders." : "Paused. The demo key was rejected.",
+      status === 403 ? "This key can read the account and cannot place orders." : "Paused. The production key was rejected.",
+    ]);
+    return;
+  }
+  if (status === 429 || status >= 500 || json === null) {
+    await query("update order_intents set status = 'unknown', last_error = $2 where client_order_id = $1", [
+      clientOrderId,
+      text.slice(0, 300) || `bad response ${status}`,
+    ]);
+    await query("insert into decisions (agent_id, action, sentence) values ($1, 'skip', $2)", [
+      agentId,
+      "Kalshi returned a bad response. Checking whether the bid landed. Not sending another.",
     ]);
     return;
   }
@@ -263,15 +284,16 @@ async function applyCreate(
 
 async function reconcile(
   agent: AgentRow,
-  pem: string,
-  intent: { status: string; client_order_id: string; kalshi_order_id: string | null; ticker: string; side: string; submit_time: string },
+  intent: { status: string; client_order_id: string; kalshi_order_id: string | null; ticker: string; side: string; submit_time: string; price: string; count: string },
 ) {
   if (intent.kalshi_order_id) {
-    const order = await kalshiRequest("demo", agent.api_key_id, pem, "GET", `/trade-api/v2/portfolio/orders/${intent.kalshi_order_id}`);
+    const order = await paperRequest(agent.user_id, "GET", `/trade-api/v2/portfolio/orders/${intent.kalshi_order_id}`);
     if (order.status === 200 && order.json) {
       const state = String(order.json.status ?? "");
-      if (state === "executed" || Number(order.json.fill_count ?? 0) > 0 && Number(order.json.remaining_count ?? 0) === 0) {
+      const filled = state === "executed" || (Number(order.json.fill_count ?? 0) > 0 && Number(order.json.remaining_count ?? 0) === 0);
+      if (filled) {
         await query("update order_intents set status = 'filled', raw = $2::jsonb where client_order_id = $1", [intent.client_order_id, JSON.stringify(order.json)]);
+        await applyFill(agent.id, intent.side, intent.price, Number(order.json.fill_count ?? 0));
       } else if (state === "canceled") {
         await query("update order_intents set status = 'canceled' where client_order_id = $1", [intent.client_order_id]);
       } else {
@@ -281,20 +303,33 @@ async function reconcile(
     }
   }
 
-  const stamp = await kalshiRequest("demo", agent.api_key_id, pem, "GET", "/trade-api/v2/exchange/user_data_timestamp");
+  const stamp = await paperRequest(agent.user_id, "GET", "/trade-api/v2/exchange/user_data_timestamp");
   const asOf = Date.parse(String(stamp.json?.as_of_time ?? ""));
   const submitted = Date.parse(intent.submit_time);
   if (!Number.isFinite(asOf) || asOf < submitted) return;
 
-  const listed = await kalshiRequest("demo", agent.api_key_id, pem, "GET", `/trade-api/v2/portfolio/orders?limit=50`);
+  const listed = await paperRequest(agent.user_id, "GET", "/trade-api/v2/portfolio/orders?limit=50");
   const orders = (listed.json?.orders as Array<Record<string, unknown>> | undefined) ?? [];
   const found = orders.find((order) => order.client_order_id === intent.client_order_id);
   if (found) {
-    await query("update order_intents set status = 'acked', kalshi_order_id = $2 where client_order_id = $1", [
+    const filled = String(found.status ?? "") === "executed" || (Number(found.fill_count ?? 0) > 0 && Number(found.remaining_count ?? 0) === 0);
+    await query("update order_intents set status = $2, kalshi_order_id = $3, raw = $4::jsonb where client_order_id = $1", [
       intent.client_order_id,
+      filled ? "filled" : "acked",
       typeof found.order_id === "string" ? found.order_id : null,
+      JSON.stringify(found),
     ]);
+    if (filled) await applyFill(agent.id, intent.side, intent.price, Number(found.fill_count ?? 0));
     return;
   }
   await query("update order_intents set status = 'absent' where client_order_id = $1", [intent.client_order_id]);
+}
+
+async function applyFill(agentId: string, side: string, price: string, fill: number) {
+  if (fill <= 0) return;
+  if (side === "bid") {
+    await query("update agents set open_entry_price = $2, open_count = $3 where id = $1", [agentId, price, fill]);
+    return;
+  }
+  await query("update agents set open_entry_price = null, open_count = null where id = $1", [agentId]);
 }

@@ -1,10 +1,10 @@
-# Agent app
+# Dopealkshi
 
-Product name is unset. This repository is [Dopealkshi](https://github.com/meszaroszack/Dopealkshi). The customer-facing name will be a config constant, not this repo name.
+Dopealkshi is the product title and the name of this repository.
 
-This is the home of a B2C Kalshi app. A person signs up, connects their own Kalshi key, and runs a named agent. An agent is a market, a style preset, and three dials. The algorithm is fixed. There is no model in the loop.
+A person signs up, connects their own Kalshi demo key, and runs a named agent. An agent is a market, a style preset, and three dials. The algorithm is fixed. There is no model in the loop.
 
-The app is not built yet. These docs are the source of truth for the first build.
+The running app is Next.js on Railway with Railway Postgres. Login is email and password. The first account on an empty database is admin, unless `ADMIN_EMAILS` lists the admin addresses. Supabase is not used in this deploy.
 
 ## Demo and live
 
@@ -32,6 +32,17 @@ Live mode places real orders on production with a separate production key. Demo 
 - Hourly `KXBTCD`, style Decay. Pro.
 - Sports is a later plugin. It is not in v1.
 
+## Run locally
+
+```bash
+npm install
+cp .env.example .env.local
+# set DATABASE_URL and CREDENTIALS_KEY
+npm run dev
+```
+
+The dev server listens on port 43123. `GET /api/health` reports whether the database migrated.
+
 ## Status
 
-Documentation only. No web app, no database, no worker, no Stripe project.
+v1 slice: signup, demo key checklist, one Window agent, and a worker that sends demo orders and reconciles them. Hourly Decay, Stripe, and admin intelligence are not in this deploy.

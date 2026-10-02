@@ -1,6 +1,6 @@
 # Architecture
 
-The app is one Next.js service and one worker. Supabase holds auth and Postgres. Stripe is one plan. Kalshi demo and Kalshi production are separate hosts and separate keys.
+The app is one Next.js service. The worker starts inside that process. This deploy uses Railway Postgres and email/password sessions. `ADMIN_EMAILS` sets admins; if it is empty, the first account is admin. Stripe is one plan and is not wired yet. Kalshi demo and Kalshi production are separate hosts and separate keys.
 
 The app is not built yet. This document is what the first build has to match.
 
